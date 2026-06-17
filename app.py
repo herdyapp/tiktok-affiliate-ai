@@ -1,35 +1,34 @@
 import streamlit as st
 import google.generativeai as genai
-from PIL import Image
 
 # Pengaturan halaman aplikasi
 st.set_page_config(page_title="TikTok Affiliate AI Pro", layout="centered")
 st.title("🎬 TikTok Affiliate AI Content Generator")
-st.write("Upload foto produkmu untuk mendapatkan prompt gambar, video (Veo 3, Meta AI, Universal), dan caption TikTok otomatis!")
+st.write("Upload foto produkmu untuk mendapatkan prompt gambar, video, dan caption TikTok otomatis!")
 
 # Kolom input API Key di menu samping agar aman
-api_key = st.sidebar.text_input("Masukkan Gemini API Key Anda:", type="password")
+st.sidebar.title("🔑 Pengaturan")
+api_key = st.sidebar.text_input("Masukkan Gemini API Key:", type="password")
 st.sidebar.markdown("[Dapatkan API Key Gratis di Sini](https://aistudio.google.com/)")
 
 # Fitur Upload Gambar
 uploaded_file = st.file_uploader("Pilih foto produk...", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    # Menampilkan gambar yang diupload
-    st.image(image, caption='Produk sukses di-upload.', use_container_width=True)
+    # Menampilkan gambar langsung dari uploader (lebih ringan)
+    st.image(uploaded_file, caption='Produk sukses di-upload.', use_container_width=True)
     
     # Tombol Eksekusi
     if st.button("✨ Hasilkan Konten TikTok"):
-        if not api_key:
-            st.error("Silakan masukkan Gemini API Key Anda di menu samping terlebih dahulu!")
+        if not api_key or api_key.strip() == "":
+            st.error("🛑 API Key kosong! Silakan klik tanda panah (>>) di pojok kiri atas, lalu masukkan Gemini API Key Anda terlebih dahulu.")
         else:
-            with st.spinner("AI sedang menganalisis produk dan meracik konten sesuai instruksi baru..."):
+            with st.spinner("AI sedang menganalisis produk dan meracik konten... Mohon tunggu sebentar..."):
                 try:
-                    # Konfigurasi AI menggunakan API Key dari input
+                    # Konfigurasi AI
                     genai.configure(api_key=api_key)
                     
-                    # Menggunakan Gemini 3.5 Flash dengan Instruksi Kustom Baru Anda
+                    # Menggunakan Gemini 3.5 Flash dengan instruksi kustom Anda
                     model = genai.GenerativeModel(
                         model_name="gemini-3.5-flash",
                         system_instruction="""Anda adalah AI Prompt Engineer dan Pakar Konten TikTok Affiliate. Tugas Anda adalah membantu pengguna membuat aset konten berdasarkan gambar produk yang mereka unggah.
@@ -71,11 +70,22 @@ Analisis gambar produk tersebut dengan teliti (perhatikan bentuk, warna, fungsi,
 ---"""
                     )
                     
-                    # Kirim gambar ke Gemini
-                    response = model.generate_content([image, "Analisis produk ini dan buatkan seluruh kebutuhan kontennya sesuai format baru."])
+                    # Mengonversi gambar ke format BYTES (Jauh lebih stabil untuk server cloud)
+                    image_bytes = uploaded_file.getvalue()
+                    image_parts = {
+                        "mime_type": uploaded_file.type,
+                        "data": image_bytes
+                    }
                     
-                    st.success("Selesai!")
-                    st.markdown(response.text)
+                    # Kirim ke Gemini
+                    response = model.generate_content([image_parts, "Analisis produk ini dan buatkan seluruh kebutuhan kontennya sesuai format baru."])
                     
+                    if response.text:
+                        st.success("✨ Sukses Meracik Konten!")
+                        st.markdown(response.text)
+                    else:
+                        st.warning("⚠️ AI terhubung, tetapi memberikan respon kosong. Coba unggah ulang gambar.")
+                        
                 except Exception as e:
-                    st.error(f"Terjadi kesalahan: {e}")
+                    st.error(f"❌ Terjadi kesalahan sistem: {e}")
+                    st.info("Tips: Periksa apakah API Key Anda di menu samping sudah benar dan aktif.")
