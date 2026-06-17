@@ -1,5 +1,7 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
+from google.genai import types
+from PIL import Image
 
 # Pengaturan halaman aplikasi
 st.set_page_config(page_title="TikTok Affiliate AI Pro", layout="centered")
@@ -15,8 +17,8 @@ st.sidebar.markdown("[Dapatkan API Key Gratis di Sini](https://aistudio.google.c
 uploaded_file = st.file_uploader("Pilih foto produk...", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    # Menampilkan gambar langsung dari uploader (lebih ringan)
-    st.image(uploaded_file, caption='Produk sukses di-upload.', use_container_width=True)
+    # Menggunakan width='stretch' sesuai panduan log Streamlit terbaru
+    st.image(uploaded_file, caption='Produk sukses di-upload.', width='stretch')
     
     # Tombol Eksekusi
     if st.button("✨ Hasilkan Konten TikTok"):
@@ -25,13 +27,14 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis produk dan meracik konten... Mohon tunggu sebentar..."):
                 try:
-                    # Konfigurasi AI
-                    genai.configure(api_key=api_key)
+                    # Menggunakan Google GenAI Client versi terbaru
+                    client = genai.Client(api_key=api_key)
                     
-                    # Menggunakan Gemini 3.5 Flash dengan instruksi kustom Anda
-                    model = genai.GenerativeModel(
-                        model_name="gemini-3.5-flash",
-                        system_instruction="""Anda adalah AI Prompt Engineer dan Pakar Konten TikTok Affiliate. Tugas Anda adalah membantu pengguna membuat aset konten berdasarkan gambar produk yang mereka unggah.
+                    # Membuka gambar dengan PIL agar kompatibel dengan SDK baru
+                    image = Image.open(uploaded_file)
+                    
+                    # Instruksi Sistem Kustom Anda
+                    system_prompt = """Anda adalah AI Prompt Engineer dan Pakar Konten TikTok Affiliate. Tugas Anda adalah membantu pengguna membuat aset konten berdasarkan gambar produk yang mereka unggah.
 
 Analisis gambar produk tersebut dengan teliti (perhatikan bentuk, warna, fungsi, dan keunikannya). Kemudian, berikan output dengan format yang rapi dan terstruktur sebagai berikut:
 
@@ -68,17 +71,15 @@ Analisis gambar produk tersebut dengan teliti (perhatikan bentuk, warna, fungsi,
 * **Body/Caption:** [Tulis caption pendek, relevan, menggunakan bahasa santai/tren anak muda Indonesia, jelaskan keunggulan produk, dan akhiri dengan CTA]
 * **Hashtags:** [Berikan 5 hashtag yang relevan dan sedang tren di TikTok]
 ---"""
+                    
+                    # Memanggil Gemini 3.5 Flash dengan konfigurasi SDK baru yang benar
+                    response = client.models.generate_content(
+                        model='gemini-3.5-flash',
+                        contents=[image, "Analisis produk ini dan buatkan seluruh kebutuhan kontennya sesuai format baru."],
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt
+                        )
                     )
-                    
-                    # Mengonversi gambar ke format BYTES (Jauh lebih stabil untuk server cloud)
-                    image_bytes = uploaded_file.getvalue()
-                    image_parts = {
-                        "mime_type": uploaded_file.type,
-                        "data": image_bytes
-                    }
-                    
-                    # Kirim ke Gemini
-                    response = model.generate_content([image_parts, "Analisis produk ini dan buatkan seluruh kebutuhan kontennya sesuai format baru."])
                     
                     if response.text:
                         st.success("✨ Sukses Meracik Konten!")
@@ -88,4 +89,4 @@ Analisis gambar produk tersebut dengan teliti (perhatikan bentuk, warna, fungsi,
                         
                 except Exception as e:
                     st.error(f"❌ Terjadi kesalahan sistem: {e}")
-                    st.info("Tips: Periksa apakah API Key Anda di menu samping sudah benar dan aktif.")
+                    st.info("Tips: Periksa apakah API Key Anda di menu samping sudah benar dan masih aktif.")
